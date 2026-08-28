@@ -1,10 +1,28 @@
 const PRODUCTS = {
-  "clasiic-core": { name: "CORE", amount: 3000 },
-  "clasiic-core-polo": { name: "CORE POLO", amount: 4500 },
-  "clasiic-repeat": { name: "REPEAT", amount: 3000 },
-  "clasiic-grid": { name: "GRID", amount: 3000 },
-  "ediit-sketch": { name: "SKETCH", amount: 3500 },
-  "ediit-build": { name: "BUILD", amount: 3500 }
+  "clasiic-core": {
+    name: "CORE",
+    prices: { black: "price_1U9HmBEh9DXESfsFsAvSNZIa", white: "price_1U9HicEh9DXESfsFYtFSwGqU" }
+  },
+  "clasiic-core-polo": {
+    name: "CORE POLO",
+    prices: { black: "price_1U9Hq2Eh9DXESfsF7gQs3l7P", white: "price_1U9Hp4Eh9DXESfsFaZLbAuSk" }
+  },
+  "clasiic-repeat": {
+    name: "REPEAT",
+    prices: { black: "price_1U9HsIEh9DXESfsFvmx4GmUj", white: "price_1U9Hr6Eh9DXESfsFmghKrqlO" }
+  },
+  "clasiic-grid": {
+    name: "GRID",
+    prices: { black: "price_1U9HtgEh9DXESfsFBTQOsvRq", white: "price_1U9HtAEh9DXESfsFFoEQqkPU" }
+  },
+  "ediit-sketch": {
+    name: "SKETCH",
+    prices: { black: "price_1U9HvFEh9DXESfsFddj2y6o7", white: "price_1U9HuTEh9DXESfsFR5VsVBQc" }
+  },
+  "ediit-build": {
+    name: "BUILD",
+    prices: { black: "price_1U9HxHEh9DXESfsFIN48pNjN", white: "price_1U9HweEh9DXESfsFjsCOCXum" }
+  }
 };
 
 const GITHUB_PAGES_ORIGIN = "https://a2jrofficial.github.io";
@@ -27,6 +45,13 @@ function withCors(response, request) {
   return new Response(response.body, { status: response.status, headers });
 }
 
+function colourForVariation(variation) {
+  const value = variation.toLowerCase();
+  if (value.includes("black")) return "black";
+  if (value.includes("white")) return "white";
+  return null;
+}
+
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
@@ -45,12 +70,9 @@ function checkoutForm(items, origin) {
 
   items.forEach((item, index) => {
     const product = PRODUCTS[item.productId];
-    form.set(`line_items[${index}][price_data][currency]`, "sgd");
-    form.set(`line_items[${index}][price_data][product_data][name]`, `${product.name} / ${item.variation}`);
-    form.set(`line_items[${index}][price_data][unit_amount]`, String(product.amount));
+    form.set(`line_items[${index}][price]`, product.prices[item.colour]);
     form.set(`line_items[${index}][quantity]`, "1");
-    form.set(`line_items[${index}][price_data][product_data][metadata][product_id]`, item.productId);
-    form.set(`line_items[${index}][price_data][product_data][metadata][size]`, item.size);
+    form.set(`metadata[item_${index + 1}]`, `${product.name} / ${item.colour.toUpperCase()} / SIZE ${item.size}`);
   });
   return form;
 }
@@ -66,9 +88,10 @@ async function createCheckout(request, env) {
   const validItems = items.map((item) => ({
     productId: typeof item?.productId === "string" ? item.productId : "",
     variation: typeof item?.variation === "string" ? item.variation.slice(0, 48) : "",
-    size: typeof item?.size === "string" ? item.size.slice(0, 16) : ""
+    size: typeof item?.size === "string" ? item.size.slice(0, 16) : "",
+    colour: typeof item?.variation === "string" ? colourForVariation(item.variation) : null
   }));
-  if (validItems.some((item) => !PRODUCTS[item.productId] || !item.variation || !item.size)) {
+  if (validItems.some((item) => !PRODUCTS[item.productId] || !item.variation || !item.size || !item.colour)) {
     return json({ error: "One or more CART items are invalid. Please add them again." }, 400);
   }
 
@@ -129,10 +152,10 @@ async function storeOrder(session, env) {
       session.customer_details?.email || null,
       session.customer_details?.name || null,
       session.customer_details?.phone || null,
-      JSON.stringify(session.shipping_details || session.customer_details?.address || null),
+      JSON.stringify(session.collected_information?.shipping_details || session.shipping_details || session.customer_details?.address || null),
       session.amount_total || null,
       session.currency || "sgd",
-      JSON.stringify(lineItems),
+      JSON.stringify({ selections: session.metadata || {}, lineItems }),
       new Date().toISOString()
     ).run();
 }
