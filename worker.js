@@ -1,29 +1,41 @@
 const PRODUCTS = {
   "clasiic-core": {
     name: "CORE",
-    prices: { black: "price_1U9HmBEh9DXESfsFsAvSNZIa", white: "price_1U9HicEh9DXESfsFYtFSwGqU" }
+    amount: 4500,
+    prices: { black: "price_1U9M2nEh9DXESfsFNgLPEL2T", white: "price_1U9M3eEh9DXESfsFD9hOjED3" }
   },
   "clasiic-core-polo": {
     name: "CORE POLO",
-    prices: { black: "price_1U9Hq2Eh9DXESfsF7gQs3l7P", white: "price_1U9Hp4Eh9DXESfsFaZLbAuSk" }
+    amount: 5500,
+    prices: { black: "price_1U9M4GEh9DXESfsFTCbzxGRV", white: "price_1U9M5zEh9DXESfsFlLj2tj6a" },
+    testPrices: { "white:L": "price_1U9M6FEh9DXESfsFvPainprM" },
+    testAmounts: { "white:L": 10 }
   },
   "clasiic-repeat": {
     name: "REPEAT",
-    prices: { black: "price_1U9HsIEh9DXESfsFvmx4GmUj", white: "price_1U9Hr6Eh9DXESfsFmghKrqlO" }
+    amount: 4000,
+    prices: { black: "price_1U9M4tEh9DXESfsFUgMMBCHf", white: "price_1U9M50Eh9DXESfsF1dUswZEH" }
   },
   "clasiic-grid": {
     name: "GRID",
-    prices: { black: "price_1U9HtgEh9DXESfsFBTQOsvRq", white: "price_1U9HtAEh9DXESfsFFoEQqkPU" }
+    amount: 4000,
+    prices: { black: "price_1U9M8BEh9DXESfsFXbSbGMiH", white: "price_1U9M8PEh9DXESfsF7SXMHz3x" }
   },
   "ediit-sketch": {
     name: "SKETCH",
-    prices: { black: "price_1U9HvFEh9DXESfsFddj2y6o7", white: "price_1U9HuTEh9DXESfsFR5VsVBQc" }
+    amount: 4000,
+    prices: { black: "price_1U9M8ZEh9DXESfsF6PEtsbq0", white: "price_1U9MA9Eh9DXESfsFhI8pmldR" }
   },
   "ediit-build": {
     name: "BUILD",
-    prices: { black: "price_1U9HxHEh9DXESfsFIN48pNjN", white: "price_1U9HweEh9DXESfsFjsCOCXum" }
+    amount: 4000,
+    prices: { black: "price_1U9MAsEh9DXESfsFzT6ihknJ", white: "price_1U9MB2Eh9DXESfsFmcbyz8w2" }
   }
 };
+
+// Add Stripe promotion-code IDs here when a campaign is ready, for example:
+// "WELCOME10": { promotionCode: "promo_..." }
+const DISCOUNT_CODES = {};
 
 const GITHUB_PAGES_ORIGIN = "https://a2jrofficial.github.io";
 
@@ -57,7 +69,15 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
   headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
 });
 
-function checkoutForm(items, origin) {
+function priceForItem(product, item) {
+  return product.testPrices?.[`${item.colour}:${item.size.toUpperCase()}`] || product.prices[item.colour];
+}
+
+function amountForItem(product, item) {
+  return product.testAmounts?.[`${item.colour}:${item.size.toUpperCase()}`] || product.amount;
+}
+
+function checkoutForm(items, origin, discount) {
   const form = new URLSearchParams({
     mode: "payment",
     success_url: `${origin}/order-confirmed?session_id={CHECKOUT_SESSION_ID}`,
@@ -68,9 +88,23 @@ function checkoutForm(items, origin) {
     "payment_method_types[0]": "card"
   });
 
+  const subtotal = items.reduce((total, item) => total + amountForItem(PRODUCTS[item.productId], item), 0);
+  const standardShipping = subtotal >= 10000 ? 0 : 500;
+
+  form.set("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
+  form.set("shipping_options[0][shipping_rate_data][display_name]", standardShipping ? "REGULAR DELIVERY" : "REGULAR DELIVERY — FREE OVER SGD 100");
+  form.set("shipping_options[0][shipping_rate_data][fixed_amount][amount]", String(standardShipping));
+  form.set("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "sgd");
+  form.set("shipping_options[1][shipping_rate_data][type]", "fixed_amount");
+  form.set("shipping_options[1][shipping_rate_data][display_name]", "CEO DELIVERY");
+  form.set("shipping_options[1][shipping_rate_data][fixed_amount][amount]", "5000");
+  form.set("shipping_options[1][shipping_rate_data][fixed_amount][currency]", "sgd");
+
+  if (discount) form.set("discounts[0][promotion_code]", discount.promotionCode);
+
   items.forEach((item, index) => {
     const product = PRODUCTS[item.productId];
-    form.set(`line_items[${index}][price]`, product.prices[item.colour]);
+    form.set(`line_items[${index}][price]`, priceForItem(product, item));
     form.set(`line_items[${index}][quantity]`, "1");
     form.set(`metadata[item_${index + 1}]`, `${product.name} / ${item.colour.toUpperCase()} / SIZE ${item.size}`);
   });
@@ -95,6 +129,10 @@ async function createCheckout(request, env) {
     return json({ error: "One or more CART items are invalid. Please add them again." }, 400);
   }
 
+  const enteredCode = typeof payload.discountCode === "string" ? payload.discountCode.trim().toUpperCase() : "";
+  const discount = enteredCode ? DISCOUNT_CODES[enteredCode] : null;
+  if (enteredCode && !discount) return json({ error: "That discount code is not valid." }, 400);
+
   const origin = new URL(request.url).origin;
   const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",
@@ -102,7 +140,7 @@ async function createCheckout(request, env) {
       authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
       "content-type": "application/x-www-form-urlencoded"
     },
-    body: checkoutForm(validItems, origin)
+    body: checkoutForm(validItems, origin, discount)
   });
   const session = await stripeResponse.json();
   if (!stripeResponse.ok) return json({ error: session.error?.message || "Stripe could not start checkout." }, 502);
@@ -155,7 +193,7 @@ async function storeOrder(session, env) {
       JSON.stringify(session.collected_information?.shipping_details || session.shipping_details || session.customer_details?.address || null),
       session.amount_total || null,
       session.currency || "sgd",
-      JSON.stringify({ selections: session.metadata || {}, lineItems }),
+      JSON.stringify({ selections: session.metadata || {}, shipping: session.shipping_cost || null, lineItems }),
       new Date().toISOString()
     ).run();
 }
