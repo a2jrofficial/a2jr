@@ -8,8 +8,8 @@ const PRODUCTS = {
     name: "CORE POLO",
     amount: 5500,
     prices: { black: "price_1U9M4GEh9DXESfsFTCbzxGRV", white: "price_1U9M5zEh9DXESfsFlLj2tj6a" },
-    testPrices: { "white:L": "price_1U9M6FEh9DXESfsFvPainprM" },
-    testAmounts: { "white:L": 10 }
+    testPrices: { "white:L": "price_1U9MY6Eh9DXESfsFPTM1KtKo" },
+    testAmounts: { "white:L": 52 }
   },
   "clasiic-repeat": {
     name: "REPEAT",
