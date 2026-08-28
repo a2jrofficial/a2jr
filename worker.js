@@ -77,6 +77,10 @@ function amountForItem(product, item) {
   return product.testAmounts?.[`${item.colour}:${item.size.toUpperCase()}`] || product.amount;
 }
 
+function isTestItem(product, item) {
+  return Boolean(product.testPrices?.[`${item.colour}:${item.size.toUpperCase()}`]);
+}
+
 function checkoutForm(items, origin, discount) {
   const form = new URLSearchParams({
     mode: "payment",
@@ -89,10 +93,11 @@ function checkoutForm(items, origin, discount) {
   });
 
   const subtotal = items.reduce((total, item) => total + amountForItem(PRODUCTS[item.productId], item), 0);
-  const standardShipping = subtotal >= 10000 ? 0 : 500;
+  const isTestCheckout = items.some((item) => isTestItem(PRODUCTS[item.productId], item));
+  const standardShipping = isTestCheckout || subtotal >= 10000 ? 0 : 500;
 
   form.set("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
-  form.set("shipping_options[0][shipping_rate_data][display_name]", standardShipping ? "REGULAR DELIVERY" : "REGULAR DELIVERY — FREE OVER SGD 100");
+  form.set("shipping_options[0][shipping_rate_data][display_name]", standardShipping ? "REGULAR DELIVERY" : isTestCheckout ? "REGULAR DELIVERY — TEST" : "REGULAR DELIVERY — FREE OVER SGD 100");
   form.set("shipping_options[0][shipping_rate_data][fixed_amount][amount]", String(standardShipping));
   form.set("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "sgd");
   form.set("shipping_options[1][shipping_rate_data][type]", "fixed_amount");
