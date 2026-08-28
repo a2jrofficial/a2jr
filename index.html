@@ -261,11 +261,28 @@
       main[class*="bg-[#050505]"] button.a2jr-featured-tile:not(:disabled):hover { background: rgb(255 255 255 / .055) !important; color: inherit !important; border-color: currentColor !important; }
       main[class*="bg-[#f8f8f5]"] button.a2jr-featured-tile:not(:disabled):hover { background: rgb(0 0 0 / .045) !important; color: inherit !important; border-color: currentColor !important; }
       .a2jr-featured-tile:hover .a2jr-featured-image { transform: scale(1.04); }
+      /* Product enquiries are replaced by CART checkout. */
+      article.group > div:last-child > div:last-child > button { display: none !important; }
     </style>
   </head>
   <body>
     <div id="root"></div>
     <link rel="stylesheet" href="./styles.css" />
+    <script>
+      // GitHub Pages has no server routes. Send checkout only to the Cloudflare Worker.
+      (() => {
+        if (window.location.hostname !== "a2jrofficial.github.io") return;
+        const workerCheckoutUrl = "https://a2jr.a2jrofficial.workers.dev/api/checkout";
+        const nativeFetch = window.fetch.bind(window);
+        window.fetch = (input, init) => {
+          const target = typeof input === "string" ? input : input instanceof URL ? input.href : input && input.url;
+          if (target === "/api/checkout" || target === `${window.location.origin}/api/checkout`) {
+            return nativeFetch(workerCheckoutUrl, init);
+          }
+          return nativeFetch(input, init);
+        };
+      })();
+    </script>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

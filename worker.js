@@ -7,6 +7,26 @@ const PRODUCTS = {
   "ediit-build": { name: "BUILD", amount: 3500 }
 };
 
+const GITHUB_PAGES_ORIGIN = "https://a2jrofficial.github.io";
+
+function corsHeaders(request) {
+  const origin = request.headers.get("Origin");
+  if (origin !== GITHUB_PAGES_ORIGIN) return {};
+  return {
+    "access-control-allow-origin": GITHUB_PAGES_ORIGIN,
+    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-allow-headers": "content-type",
+    "access-control-max-age": "86400",
+    vary: "Origin"
+  };
+}
+
+function withCors(response, request) {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(corsHeaders(request))) headers.set(name, value);
+  return new Response(response.body, { status: response.status, headers });
+}
+
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
@@ -136,7 +156,12 @@ function confirmationPage() {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === "/api/checkout" && request.method === "POST") return createCheckout(request, env);
+    if (url.pathname === "/api/checkout" && request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders(request) });
+    }
+    if (url.pathname === "/api/checkout" && request.method === "POST") {
+      return withCors(await createCheckout(request, env), request);
+    }
     if (url.pathname === "/api/stripe-webhook" && request.method === "POST") return handleWebhook(request, env);
     if (url.pathname === "/order-confirmed") return confirmationPage();
     return env.ASSETS.fetch(request);
