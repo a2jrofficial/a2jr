@@ -88,8 +88,7 @@ function checkoutForm(items, origin, discount) {
     cancel_url: `${origin}/?checkout=cancelled`,
     billing_address_collection: "required",
     "phone_number_collection[enabled]": "true",
-    "shipping_address_collection[allowed_countries][0]": "SG",
-    "payment_method_types[0]": "card"
+    "shipping_address_collection[allowed_countries][0]": "SG"
   });
 
   const subtotal = items.reduce((total, item) => total + amountForItem(PRODUCTS[item.productId], item), 0);
