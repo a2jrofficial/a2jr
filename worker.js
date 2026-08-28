@@ -36,11 +36,6 @@ const PRODUCTS = {
 // Add Stripe promotion-code IDs here when a campaign is ready, for example:
 // "WELCOME10": { promotionCode: "promo_..." }
 const DISCOUNT_CODES = {};
-const CEO_ALERT_RECIPIENTS = [
-  "a2jrofficial@gmail.com",
-  "aliasgeradamally@gmail.com",
-  "23.abdeali@gmail.com"
-];
 
 const GITHUB_PAGES_ORIGIN = "https://a2jrofficial.github.io";
 
@@ -191,7 +186,7 @@ async function storeOrder(session, env) {
     items TEXT,
     created_at TEXT NOT NULL
   )`);
-  const insert = await env.DB.prepare(`INSERT OR IGNORE INTO orders (
+  await env.DB.prepare(`INSERT OR IGNORE INTO orders (
     stripe_session_id, payment_status, customer_email, customer_name, phone, shipping_address, amount_total, currency, items, created_at
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(
@@ -206,31 +201,6 @@ async function storeOrder(session, env) {
       JSON.stringify({ selections: session.metadata || {}, shipping: session.shipping_cost || null, lineItems }),
       new Date().toISOString()
     ).run();
-  return insert.meta?.changes === 1;
-}
-
-async function sendCeoDeliveryAlerts(session, env) {
-  if (session.shipping_cost?.amount_total !== 5000 || !env.RESEND_API_KEY || !env.RESEND_FROM_EMAIL) return;
-
-  const message = {
-    from: env.RESEND_FROM_EMAIL,
-    subject: "A2JR / CEO DELIVERY",
-    text: "A CEO DELIVERY order has been placed.",
-    html: "<p>A CEO DELIVERY order has been placed.</p>"
-  };
-  const results = await Promise.allSettled(
-    CEO_ALERT_RECIPIENTS.map((to) => fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({ ...message, to: [to] })
-    }))
-  );
-  if (results.some((result) => result.status !== "fulfilled" || !result.value.ok)) {
-    console.error("One or more CEO delivery alerts could not be sent.");
-  }
 }
 
 async function handleWebhook(request, env) {
@@ -239,8 +209,7 @@ async function handleWebhook(request, env) {
   if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(event.type)) {
     const session = event.data.object;
     if (session.payment_status === "paid" || event.type === "checkout.session.async_payment_succeeded") {
-      const isNewOrder = await storeOrder(session, env);
-      if (isNewOrder) await sendCeoDeliveryAlerts(session, env);
+      await storeOrder(session, env);
     }
   }
   return new Response("ok");
