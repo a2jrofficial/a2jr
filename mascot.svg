@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 125 100" fill="currentColor">
+  <!-- Symmetrical, mathematically precise reproduction of the A2JR Mascot -->
+  <!-- Two center floating columns -->
+  <rect x="44.5" y="0" width="16" height="60" fill="currentColor" />
+  <rect x="64.5" y="0" width="16" height="60" fill="currentColor" />
+  
+  <!-- Lower pedestal/trough block -->
+  <path d="M 0,60 L 25,60 L 25,74 L 100,74 L 100,60 L 125,60 L 125,100 L 0,100 Z" fill="currentColor" />
+</svg>
