@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
+  "name": "a2jr",
+  "main": "worker.js",
+  "compatibility_date": "2026-08-28",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "a2jr-orders",
+      "database_id": "6b7c4fe2-8d2f-4fe0-a737-8e2da5b26ea4"
+    }
+  ]
+}
